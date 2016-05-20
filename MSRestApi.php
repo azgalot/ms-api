@@ -4167,4 +4167,79 @@ class CurlException extends RuntimeException
  */
 class MSException extends RuntimeException
 {
+}th > 0) {
+                $element->item(0)->parentNode->removeChild($element->item(0));
+            }
+        }
+
+        return $document;
+    }
+
+    /**
+     * Check uuid.
+     * 
+     * @param string $uuid
+     * @throws InvalidArgumentException
+     * @access private
+     */
+    private function checkUuid($uuid)
+    {
+        if (is_null($uuid) || empty($uuid)) {
+            throw new InvalidArgumentException('The `uuid` can not be empty');
+        }
+    }
+
+    /**
+     * Do some actions when instance destroyed
+     * @access public
+     */
+    public function __destruct()
+    {
+        curl_close($this->curl);
+    }
+
+    /**
+     * @return integer
+     * @access public
+     */
+    public function getTimeout()
+    {
+        return $this->timeout;
+    }
+
+    /**
+     * @param integer $timeout
+     * @return MSRestApi
+     */
+    public function setTimeout($timeout)
+    {
+        $this->timeout = $timeout;
+
+        return $this;
+    }
+ 
+}
+
+/**
+ * Exception for CURL
+<<<<<<< HEAD
+ * @author Andrey Artahanov <azgalot9@gmail.com>
+=======
+ * @author Dmitry Mamontov <d.slonyara@gmail.com>
+>>>>>>> a24d25f33d0d1a67f8e3bb52c14769d9069f66db
+ */
+class CurlException extends RuntimeException
+{
+}
+
+/**
+ * Exception for Moy Sklad
+<<<<<<< HEAD
+ * @author Andrey Artahanov <azgalot9@gmail.com>
+=======
+ * @author Dmitry Mamontov <d.slonyara@gmail.com>
+>>>>>>> a24d25f33d0d1a67f8e3bb52c14769d9069f66db
+ */
+class MSException extends RuntimeException
+{
 }
