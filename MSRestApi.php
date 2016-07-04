@@ -502,7 +502,7 @@ class MSRestApi
 
 /**
  * Exception for CURL
- * @author Dmitry Mamontov <d.slonyara@gmail.com>
+ * @author Andrey Artahanov <azgalot9@gmail.com>
  */
 class CurlException extends RuntimeException
 {
@@ -510,7 +510,7 @@ class CurlException extends RuntimeException
 
 /**
  * Exception for Moy Sklad
- * @author Dmitry Mamontov <d.slonyara@gmail.com>
+ * @author Andrey Artahanov <azgalot9@gmail.com>
  */
 class MSException extends RuntimeException
 {
