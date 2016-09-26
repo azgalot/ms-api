@@ -38,7 +38,7 @@
  * @author    Andrey Artahanov <azgalot9@gmail.com>
  * @copyright 2016 Andrey Artahanov <azgalot9@gmail.com>
  * @license   http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @since     File available since Release 0.0.1
+ * @since     File available since Release 0.0.2
  */
 /**
  * MSRestApi - The main class
@@ -46,10 +46,10 @@
  * @author    Andrey Artahanov <azgalot9@gmail.com>
  * @copyright 2016 Andrey Artahanov <azgalot9@gmail.com>
  * @license   http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @version   Release: 0.0.1
+ * @version   Release: 0.0.2
  * @link      https://github.com/azgalot/ms-api/
- * @link      https://online.moysklad.ru/api/remap/1.0/doc/index.html
- * @since     Class available since Release 0.0.1
+ * @link      https://online.moysklad.ru/api/remap/1.1/doc/index.html
+ * @since     Class available since Release 0.0.2
  */
 
 class MSRestApi
@@ -57,7 +57,7 @@ class MSRestApi
     /**
      * URL from RestAPI
      */
-    const URL = 'https://online.moysklad.ru/api/remap/1.0';
+    const URL = 'https://online.moysklad.ru/api/remap/1.1';
 
     /**
      * Methods
@@ -66,6 +66,23 @@ class MSRestApi
     const METHOD_POST = 'POST';
     const METHOD_PUT = 'PUT';
     const METHOD_DELETE = 'DELETE';
+
+    /**
+     * Filters
+     */
+    const FILTER_OPERANDS = array('=', '>', '<', '>=', '<=', '!=');
+
+    /**
+     * Requests
+     */
+    const REQUEST_ATTRIBUTES_MAIN = array('metadata', 'all', 'bystore', 'byoperation');
+    const REQUEST_ATTRIBUTES_SECOND = array(
+        'accounts',
+        'contactpersons',
+        'packs',
+        'cashiers',
+        'positions'
+    );
 
     /**
      * Restrictions
@@ -106,9 +123,9 @@ class MSRestApi
     protected $retry;
 
     /**
-     * 
-     * 
-     * 
+     * Entity mapping
+     * @var entity
+     * @access protected
      */
     protected $entity = array(
         "counterparty" => "entity",
@@ -131,10 +148,26 @@ class MSRestApi
         "demand" => "entity",
         "invoiceout" => "entity",
         "retaildemand" => "entity",
+/* v1.1 \/ */
+        "purchaseOrder" => "entity",
+        "supply" => "entity",
+        "invoicein" => "entity",
+        "paymentin" => "entity",
+        "paymentout" => "entity",
+        "cashin" => "entity",
+        "cashout" => "entity",
+        "companysettings" => "entity",
+        "expenseItem" => "entity",
+        "country" => "entity",
+        "uom" => "entity",
+        "customentity" => "entity",
+        "salesreturn" => "entity",
+        "purchasereturn" => "entity",
+/* v1.1 /\ */
 
         "stock" => "report",
 
-        "retailgood" => "pos",
+        "assortment" => "pos",
         "openshift" => "pos",
         "closeshift" => "pos"
     );
@@ -142,7 +175,7 @@ class MSRestApi
     /**
      * Class constructor
      * @param string $login
-     * @param string $key
+     * @param string $password
      * @return void
      * @access public
      * @final
@@ -157,42 +190,64 @@ class MSRestApi
 
     /**
      * Get data.
-     *
-     * @param string $uuid
-     * @param string $type
-     * @return object
+     * 
+     * @param array $params
+     * @param array $filters
+     * @return array
      * @access public
      * @final
      */
-    final public function getData($type, $uuid)
+    final public function getData(
+        $params,
+        $filters = null
+    )
     {
-        $this->checkUuid($uuid);
+        if (empty($params)) {
+            throw new InvalidArgumentException('The `params` can not be empty');
+        }
 
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type.'/%s', self::URL, $uuid));
+        $uri = self::URL . '/' . $this->entity[reset($params)] . '/';
+
+        foreach ($params as $param) {
+            $uri .= $param . '/';
+        }
+        unset($param);
+        $uri = trim($uri, '/');
+
+        switch (count($params)) {
+            case 1:
+                $parameters['offset'] = (!empty($filters['limit'])) ? $filters['limit'] : 100;
+                $parameters['limit'] = (!empty($filters['offset'])) ? $filters['offset'] : 0;
+                $parameters['filters'] = (!empty($filters['filter'])) ? $filters['filter'] : null;
+                break;
+            case 2:
+                if (!in_array($params[1], self::REQUEST_ATTRIBUTES_MAIN)) {
+                    $this->checkUuid($params[1]);
+                }
+                break;
+            case 3:
+                $this->checkUuid($params[1]);
+                if (!in_array($params[2], self::REQUEST_ATTRIBUTES_SECOND)) {
+                    throw new InvalidArgumentException(sprintf('Wrong attribute: `%s`', $params[2]));
+                }
+                break;
+            case 4:
+                $this->checkUuid($params[1]);
+                if (!in_array($params[2], self::REQUEST_ATTRIBUTES_SECOND)) {
+                    throw new InvalidArgumentException(sprintf('Wrong attribute: `%s`', $params[2]));
+                }
+                $this->checkUuid($params[3]);
+                break;
+        }
+
+        return $this->curlRequest($uri, self::METHOD_GET, $filters);
     }
 
     /**
-     * Get data params.
+     * Create data.
      *
-     * @param string $uuid
-     * @param string $type
-     * @param string $param
-     * @return object
-     * @access public
-     * @final
-     */
-    final public function getDataParam($type, $uuid, $param = "attributes")
-    {
-        $this->checkUuid($uuid);
-
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type.'/%s/%s', self::URL, $uuid, $param));
-    }
-
-    /**
-     * Create good.
-     *
-     * @param json $data
-     * @param string $type
+     * @param json $type
+     * @param string $data
      * @return object
      * @access public
      * @final
@@ -201,14 +256,31 @@ class MSRestApi
     {
         $parameters['data'] = $data;
 
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_PUT, $parameters);
+        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_POST, $parameters);
     }
 
     /**
-     * Delete good.
+     * Update data.
      *
-     * @param string $uuid
      * @param string $type
+     * @param string $uuid
+     * @param json $data
+     * @return object
+     * @access public
+     * @final
+     */
+    final public function updateData($type, $uuid, $data)
+    {
+        $parameters['data'] = $data;
+
+        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type.'/%s', self::URL, $uuid), self::METHOD_PUT, $parameters);
+    }
+
+    /**
+     * Delete data.
+     *
+     * @param string $type
+     * @param string $uuid
      * @return object
      * @access public
      * @final
@@ -221,93 +293,21 @@ class MSRestApi
     }
 
     /**
-     * Get list good.
-     *
-     * @param array $filter
-     * @param integer $offset
-     * @param integer $limit
-     * @param string $type
-     * @param array $filters
-     * @return object
-     * @access public
-     * @final
-     */
-    final public function getDataList($type, $offset = 0, $limit = 100, $filters = array())
-    {
-        $parameters['offset'] = $offset;
-        $parameters['limit'] = $limit;
-        $parameters['filters'] = $filters;
-    
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_GET, $parameters);
-    }
-
-    /**
-     * Get metadata.
-     *
-     * @param string $uuid
-     * @param string $type
-     * @return object
-     * @access public
-     * @final
-     */
-    final public function getMetaDataList($type)
-    {
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type.'/metadata', self::URL));
-    }
-
-    /**
-     * Update list good.
-     *
-     * @param json $data
-     * @param string $type
-     * @return object
-     * @access public
-     * @final
-     */
-    final public function updateDataList($type, $data)
-    {
-        $parameters['data'] = $data;
-    
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_PUT, $parameters);
-    }
-
-    /**
-     * Delete list good.
-     *
-     * @param json $data
-     * @param string $type
-     * @return object
-     * @access public
-     * @final
-     */
-    final public function deleteDataList($type, $data)
-    {
-        $parameters['data'] = $data;
-
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_POST, $parameters);
-    }
-
-
-
-    /**
      * Execution of the request
      * 
      * @param string $url
      * @param string $method
      * @param array $parameters
-     * @param integer $timeout
      * @return mixed
      * @throws CurlException
      * @throws MSException
      * @access protected
      */
-    protected function curlRequest($url, $method = 'GET', $parameters = null)
+    public function curlRequest($url, $method = 'GET', $parameters = null)
     {
-        set_time_limit(0);
-
         time_nanosleep(0, 250000000);
 
-        if (!is_null($parameters) && $method == self::METHOD_GET) {
+        if (!is_null($parameters) && !empty($parameters) && $method == self::METHOD_GET) {
             $url .= $this->httpBuildQuery($parameters);
         }
 
@@ -316,35 +316,42 @@ class MSRestApi
         }
 
         //Set general arguments
-        curl_setopt($this->curl, CURLOPT_USERAGENT, 'MS-API-client/1.1');
         curl_setopt($this->curl, CURLOPT_USERPWD, "{$this->login}:{$this->password}");
         curl_setopt($this->curl, CURLOPT_URL, $url);
         curl_setopt($this->curl, CURLOPT_FAILONERROR, false);
         curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($this->curl, CURLOPT_TIMEOUT, $this->getTimeout());
-        curl_setopt($this->curl, CURLOPT_POST, false);
-        curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, array());
-        curl_setopt($this->curl, CURLOPT_HTTPHEADER, array());
-
-        if ($method == self::METHOD_POST) {
-            curl_setopt($this->curl, CURLOPT_POST, true);
-        } elseif (in_array($method, array(self::METHOD_PUT, self::METHOD_DELETE))) {
-            curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
-        }
+        curl_setopt($this->curl, CURLOPT_TIMEOUT, 60);
 
         if (
             !is_null($parameters) &&
-            in_array($method, array(self::METHOD_POST, self::METHOD_PUT, self::METHOD_DELETE)) &&
-            isset($parameters['data'])
+            in_array($method, array(self::METHOD_POST, self::METHOD_PUT)) &&
+            !empty($parameters['data'])
         ) {
-            // if() {} // добавить проверку на величину передаваемых данных!!!
+            if (strlen(json_encode($parameters['data'])) > self::MAX_DATA_VALUE) {
+                throw new MSException(
+                    sprintf(
+                        'The POST data size should not exceed `%s` bytes',
+                        self::MAX_DATA_VALUE
+                    )
+                );
+            }
             curl_setopt($this->curl, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                'Accept: */*'
+                'Content-Type: application/json'
             ));
-            $data = json_encode($parameters['data']);
-            curl_setopt($this->curl, CURLOPT_POSTFIELDS, $data);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($parameters['data']));
+            if ($method == self::METHOD_PUT) {
+                curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
+            }
+            if ($method == self::METHOD_POST) {
+                curl_setopt($this->curl, CURLOPT_POST, true);
+            }
+        }
+
+        if (in_array($method, array(self::METHOD_DELETE))) {
+            curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($this->curl, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json'
+            ));
         }
 
         $response = curl_exec($this->curl);
@@ -382,7 +389,7 @@ class MSRestApi
      * Gets the query result.
      *
      * @param string $response
-     * @return SimpleXMLElement|DOMDocument
+     * @return array
      * @access private
      */
     private function getResult($response)
@@ -395,7 +402,7 @@ class MSRestApi
     /**
      * Get error.
      * 
-     * @param SimpleXMLElement|DOMDocument $result
+     * @param array
      * @return string
      * @access private
      */
@@ -404,7 +411,11 @@ class MSRestApi
         $error = "";
         if(!empty($result['errors'])){
             foreach ($result['errors'] as $err) {
-                $error .= "[".date("Y-m-d H:i:s")."] Error ".$err['parameter'].": ".$err['error']."\n";
+                if(!empty($err['parameter'])){
+                    $error .= "[".date("Y-m-d H:i:s")."] Error ".$err['parameter'].": ".$err['error']."\n";
+                }else{
+                    $error .= "[".date("Y-m-d H:i:s")."] Error: ".$err['error']."\n";
+                }
             }
         }else{
             $error = "[".date("Y-m-d H:i:s")."] Internal server error";
@@ -422,37 +433,46 @@ class MSRestApi
      */
     private function httpBuildQuery($parameters)
     {
-        if (isset($parameters['filters']) && is_array($parameters['filters'])) {
-            $filter = array();
-            foreach ($parameters['filters'] as $name => $value) {
-                $filter[$name] = $value;
+        if (is_array($parameters)) {
+            $params = array();
+            $filter = '';
+            $filters = array();
+            foreach ($parameters as $name => $value) {
+                if ($name == 'filter') {
+                    if (!empty($value) & is_array($value)) {
+                        $filter = '&' . $this->buildFilter($value);
+                    }
+                    continue;
+                }
+                $filters[$name] = $value;
             }
-            unset($parameters['filters'], $name, $value);
-            $parameters = array_merge($parameters, $filter);
+            unset($name, $value);
+            $params = array_merge($params, $filters);
         }
 
-        return '?' . http_build_query($parameters);
+        return '?' . http_build_query($params) . $filter;
     }
 
     /**
-     * It clears the document from the trash.
+     * build filter.
      *
-     * @param DOMDocument $document
-     * @return DOMDocument
+     * @param array $filter
+     * @return string
      * @access private
      */
-    private function clearDomDocument(DOMDocument $document)
+    private function buildFilter($filters)
     {
-        $tags = array('head', 'h1', 'h3');
-
-        foreach ($tags as $tag) {
-            $element = $document->getElementsByTagName($tag);
-            if ($element->length > 0) {
-                $element->item(0)->parentNode->removeChild($element->item(0));
+        $params = '';
+        foreach ($filters as $filter) {
+            if (!in_array($filter['operand'], self::FILTER_OPERANDS)) {
+                continue;
             }
+            $params .= $filter['name'] . $filter['operand'] . $filter['value'] . ';';
         }
+        unset($filter);
+        $params = trim($params, ';');
 
-        return $document;
+        return 'filter=' . $params;
     }
 
     /**
@@ -467,6 +487,13 @@ class MSRestApi
         if (is_null($uuid) || empty($uuid)) {
             throw new InvalidArgumentException('The `uuid` can not be empty');
         }
+
+        if (!preg_match("#^[\w\d]{8}-[\w\d]{4}-[\w\d]{4}-[\w\d]{4}-[\w\d]{12}$#", $uuid)) {
+            if (preg_match("#^[a-z\d]+$#i", $uuid)) {
+                throw new InvalidArgumentException(sprintf('Wrong attribute: `%s`', $uuid));
+            }
+            throw new InvalidArgumentException('The `uuid` has invalid format');
+        }
     }
 
     /**
@@ -476,26 +503,6 @@ class MSRestApi
     public function __destruct()
     {
         curl_close($this->curl);
-    }
-
-    /**
-     * @return integer
-     * @access public
-     */
-    public function getTimeout()
-    {
-        return $this->timeout;
-    }
-
-    /**
-     * @param integer $timeout
-     * @return MSRestApi
-     */
-    public function setTimeout($timeout)
-    {
-        $this->timeout = $timeout;
-
-        return $this;
     }
  
 }
