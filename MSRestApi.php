@@ -118,7 +118,7 @@ class MSRestApi
     protected $timeout = 60;
 
     /**
-     * 
+     *
      */
     protected $retry;
 
@@ -190,7 +190,7 @@ class MSRestApi
 
     /**
      * Get data.
-     * 
+     *
      * @param array $params
      * @param array $filters
      * @return array
@@ -216,14 +216,17 @@ class MSRestApi
 
         switch (count($params)) {
             case 1:
-                $parameters['offset'] = (!empty($filters['limit'])) ? $filters['limit'] : 100;
-                $parameters['limit'] = (!empty($filters['offset'])) ? $filters['offset'] : 0;
-                $parameters['filters'] = (!empty($filters['filter'])) ? $filters['filter'] : null;
+                $filters['limit'] = (!empty($filters['limit'])) ? $filters['limit'] : 100;
+                $filters['offset'] = (!empty($filters['offset'])) ? $filters['offset'] : 0;
+                $filters['filters'] = (!empty($filters['filters'])) ? $filters['filters'] : null;
                 break;
             case 2:
                 if (!in_array($params[1], self::REQUEST_ATTRIBUTES_MAIN)) {
                     $this->checkUuid($params[1]);
                 }
+                $filters['limit'] = (!empty($filters['limit'])) ? $filters['limit'] : 100;
+                $filters['offset'] = (!empty($filters['offset'])) ? $filters['offset'] : 0;
+                $filters['filters'] = (!empty($filters['filters'])) ? $filters['filters'] : null;
                 break;
             case 3:
                 $this->checkUuid($params[1]);
@@ -246,17 +249,25 @@ class MSRestApi
     /**
      * Create data.
      *
-     * @param json $type
-     * @param string $data
+     * @param mixed $param
+     * @param array $data
      * @return object
      * @access public
      * @final
      */
-    final public function createData($type, $data)
+    final public function createData($param, $data)
     {
+        if (is_array($param)) {
+            $type = $param[0];
+            $uuid = $param[1];
+            $this->checkUuid($uuid);
+        } else {
+            $type = $param;
+            $uuid = null;
+        }
         $parameters['data'] = $data;
 
-        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type, self::URL), self::METHOD_POST, $parameters);
+        return $this->curlRequest(sprintf('%s/'.$this->entity[$type].'/'.$type.(!is_null($uuid) ? ('/'.$uuid) : ''), self::URL), self::METHOD_POST, $parameters);
     }
 
     /**
@@ -294,7 +305,7 @@ class MSRestApi
 
     /**
      * Execution of the request
-     * 
+     *
      * @param string $url
      * @param string $method
      * @param array $parameters
@@ -401,7 +412,7 @@ class MSRestApi
 
     /**
      * Get error.
-     * 
+     *
      * @param array
      * @return string
      * @access private
@@ -438,7 +449,7 @@ class MSRestApi
             $filter = '';
             $filters = array();
             foreach ($parameters as $name => $value) {
-                if ($name == 'filter') {
+                if ($name == 'filters') {
                     if (!empty($value) & is_array($value)) {
                         $filter = '&' . $this->buildFilter($value);
                     }
@@ -477,7 +488,7 @@ class MSRestApi
 
     /**
      * Check uuid.
-     * 
+     *
      * @param string $uuid
      * @throws InvalidArgumentException
      * @access private
@@ -504,7 +515,7 @@ class MSRestApi
     {
         curl_close($this->curl);
     }
- 
+
 }
 
 /**
